@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GECA News Updates</title>
+
+    <!-- ✅ Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ✅ Swiper slider (for headline carousel) -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
+    />
+
+    <!-- ---- Marquee / Ticker styles ---- -->
+    <style>
+      .news-ticker {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(4px);
+        overflow: hidden;
+        white-space: nowrap;
+        position: relative;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .ticker-slide {
+        display: inline-block;
+        padding-left: 100%;
+        animation: ticker 80s linear infinite;
+      }
+      .news-ticker:hover .ticker-slide {
+        animation-play-state: paused;
+      }
+      @keyframes ticker {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+      .ticker-item {
+        display: inline-block;
+        padding: 0 2rem;
+      }
+
+      /* Limit swiper container width and prevent overflow */
+      .swiper {
+        position: relative;
+        max-width: 100%;
+        overflow: hidden;
+      }
+
+      /* Position buttons inside with fixed size and padding */
+      .swiper-button-prev,
+      .swiper-button-next {
+        position: absolute;
+        top: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        margin-top: -1.25rem;
+        z-index: 10;
+        color: #ffffff;
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 9999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .swiper-button-prev {
+        left: 8px;
+      }
+
+      .swiper-button-next {
+        right: 8px;
+      }
+
+      .swiper-button-prev:hover,
+      .swiper-button-next:hover {
+        opacity: 1;
+      }
+
+      .swiper-button-prev::after,
+      .swiper-button-next::after {
+        font-size: 20px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col items-center py-10 px-4"
+  >
+    <!-- 🔥 1‑Item News Slider (above the logo) -->
+    <% if (news && news.length) { %>
+    <div class="w-full max-w-4xl mb-10">
+      <div class="relative swiper px-6 md:px-10">
+        <div class="swiper-wrapper">
+          <% news.forEach(function (item) { %>
+          <div class="swiper-slide flex justify-center">
+            <a
+              href="<%= item.link %>"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="block bg-white/10 hover:bg-white/20 transition rounded-xl p-8 shadow-lg backdrop-blur-sm text-center"
+            >
+              <h2 class="text-xl md:text-2xl font-semibold">
+                <%= item.title %>
+              </h2>
+              <% if (item.summary) { %>
+              <p class="mt-2 text-gray-300 line-clamp-2"><%= item.summary %></p>
+              <% } %>
+            </a>
+          </div>
+          <% }); %>
+        </div>
+        <!-- Navigation Buttons -->
+        <div
+          class="swiper-button-prev absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20"
+        ></div>
+        <div
+          class="swiper-button-next absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20"
+        ></div>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- 🔥 LOGO -->
+    <img
+      src="/logo.jpg"
+      alt="GECA Logo"
+      class="w-40 md:w-48 mb-8 drop-shadow-2xl rounded-lg"
+    />
+
+    <!-- 🔥 HEADING -->
+    <h1 class="text-3xl md:text-4xl font-bold text-center mb-6">
+      Subscribe for GECA News Updates
+    </h1>
+
+    <!-- 🔥 SUBSCRIBE FORM -->
+    <form
+      action="/subscribe"
+      method="POST"
+      class="w-full max-w-xl flex flex-col sm:flex-row gap-4 justify-center mb-10"
+    >
+      <input
+        type="email"
+        name="email"
+        placeholder="Enter your email"
+        required
+        class="flex-1 rounded-xl py-3 px-5 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-lg"
+      />
+      <button
+        type="submit"
+        class="rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-6 py-3 font-semibold shadow-lg transition"
+      >
+        Subscribe
+      </button>
+    </form>
+
+    <!-- 🔥 Marquee / News Ticker -->
+    <div class="news-ticker w-full py-2">
+      <% if (news && news.length) { %>
+      <div class="ticker-slide">
+        <% news.forEach(function (item, index) { %>
+        <span class="ticker-item">
+          <a
+            href="<%= item.link %>"
+            target="_blank"
+            rel="noopener"
+            class="text-blue-400 hover:underline font-medium"
+            ><%= item.title %></a
+          >
+          <% if (index < news.length - 1) { %> | <% } %>
+        </span>
+        <% }); %>
+      </div>
+      <% } else { %>
+      <div class="p-2 text-center text-gray-400">No news to display.</div>
+      <% } %>
+    </div>
+
+    <!-- ✅ Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+    <script>
+      // Initialize the single‑slide Swiper with navigation buttons
+      document.addEventListener("DOMContentLoaded", () => {
+        new Swiper(".swiper", {
+          loop: true,
+          effect: "fade",
+          fadeEffect: { crossFade: true },
+          autoplay: {
+            delay: 5000,
+            disableOnInteraction: false,
+          },
+          navigation: {
+            nextEl: ".swiper-button-next",
+            prevEl: ".swiper-button-prev",
+          },
+        });
+      });
+    </script>
+  </body>
+</html>
