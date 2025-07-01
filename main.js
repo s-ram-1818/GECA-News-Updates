@@ -50,6 +50,15 @@ app.get("/api/news", (req, res) => {
     res.status(500).json({ message: "Failed to load news" });
   }
 });
+app.get("/api/sends", (req, res) => {
+  try {
+    const data = fs.readFileSync(SUBSCRIBERS_FILE, "utf8");
+    const sends = JSON.parse(data);
+    res.send(sends);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to load sends" });
+  }
+});
 
 app.post("/subscribe", (req, res) => {
   const email = req.body.email;
