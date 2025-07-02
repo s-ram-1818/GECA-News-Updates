@@ -16,8 +16,7 @@ dotenv.config();
 
 // --- Constants ---
 const app = express();
-const STATE_FILE = path.join(__dirname, "news.json");
-const SUBSCRIBERS_FILE = path.join(__dirname, "sends.json");
+
 const url = "https://geca.ac.in/";
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -26,25 +25,29 @@ const transporter = nodemailer.createTransport({
     pass: "qupd fkak gyyo eqao", // Replace with the App Password
   },
 });
-
-connectDB();
+// --- Database Connection ---
+(async () => {
+  try {
+    await connectDB();
+  } catch (error) {
+    console.error("Database connection failed:", error.message);
+  }
+})();
 
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // --- Express Routes ---
-app.get("/", (req, res) => {
-  let news = [];
-  (async () => {
-    try {
-      const news = await News.find().lean();
-    } catch (e) {}
-  })();
-
-  res.render("index", { news });
+app.get("/", async (req, res) => {
+  try {
+    const news = await News.find().lean(); // always fresh
+    res.render("index", { news });
+  } catch (e) {
+    console.error("Failed to load news:", e);
+    res.status(500).send("Server error");
+  }
 });
-
 app.get("/api/news", (req, res) => {
   (async () => {
     try {
@@ -67,38 +70,31 @@ app.get("/api/sends", (req, res) => {
   })();
 });
 
-app.post("/subscribe", (req, res) => {
+app.post("/subscribe", async (req, res) => {
   const email = req.body.email;
-
-  let emails = [];
-  (async () => {
-    try {
-      emails = await Subscriber.find().lean();
-    } catch (e) {
-      console.error("Invalid news file:", e);
+  try {
+    const existing = await Subscriber.findOne({ email });
+    if (existing) {
+      return res.send("Already Registered");
     }
-  })();
-  if (!emails.includes(email)) {
-    const newSubscriber = new Subscriber({ email });
-    newSubscriber
-      .save()
-      .catch((err) => console.error("Failed to save subscriber:", err));
+
+    await new Subscriber({ email }).save();
+
     const mailOptions = {
-      from: "grcanewzz@gmail.com",
+      from: "gecanewzz@gmail.com",
       to: email,
       subject: "Welcome to GECA News Updates 🎓",
       text: `Hi there,
 Thank you for subscribing to GECA News Updates.
-From now on, you'll receive email notifications whenever new notices or announcements are posted on the official GECA website. 
+From now on, you'll receive email notifications whenever new notices or announcements are posted on the official GECA website.
 We send messages only when there’s something new — no spam.`,
     };
-    transporter
-      .sendMail(mailOptions)
-      .catch((err) => console.error("Failed to send mail:", err));
 
+    await transporter.sendMail(mailOptions);
     res.send("Successfully Registered");
-  } else {
-    res.send("Already Registered");
+  } catch (err) {
+    console.error("Subscription error:", err);
+    res.status(500).send("Subscription failed");
   }
 });
 
