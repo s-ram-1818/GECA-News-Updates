@@ -8,6 +8,10 @@ const cheerio = require("cheerio");
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 const dotenv = require("dotenv");
+const mongoose = require("mongoose");
+const connectDB = require("./connection.js");
+const { News, Subscriber } = require("./schema.js");
+
 dotenv.config();
 
 // --- Constants ---
@@ -23,7 +27,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// --- Express Setup ---
+connectDB();
+
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -31,48 +36,53 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // --- Express Routes ---
 app.get("/", (req, res) => {
   let news = [];
-  if (fs.existsSync(STATE_FILE)) {
+  (async () => {
     try {
-      news = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-    } catch (e) {
-      console.error("Invalid news file:", e);
-    }
-  }
+      const news = await News.find().lean();
+    } catch (e) {}
+  })();
+
   res.render("index", { news });
 });
 
 app.get("/api/news", (req, res) => {
-  try {
-    const data = fs.readFileSync(STATE_FILE, "utf8");
-    const news = JSON.parse(data);
-    res.send(news);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to load news" });
-  }
+  (async () => {
+    try {
+      const news = await News.find().lean();
+      res.send(news);
+    } catch (e) {
+      res.status(500).json({ message: "Failed to load news" });
+    }
+  })();
 });
 app.get("/api/sends", (req, res) => {
-  try {
-    const data = fs.readFileSync(SUBSCRIBERS_FILE, "utf8");
-    const sends = JSON.parse(data);
-    res.send(sends);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to load sends" });
-  }
+  (async () => {
+    try {
+      const sends = await Subscriber.find().lean();
+      res.send(sends);
+    } catch (e) {
+      console.error("Invalid news file:", e);
+      res.status(500).json({ message: "Failed to load news" });
+    }
+  })();
 });
 
 app.post("/subscribe", (req, res) => {
   const email = req.body.email;
+
   let emails = [];
-  if (fs.existsSync(SUBSCRIBERS_FILE)) {
+  (async () => {
     try {
-      emails = JSON.parse(fs.readFileSync(SUBSCRIBERS_FILE, "utf8"));
-    } catch (err) {
-      console.error("Failed to read subscribers file:", err);
+      emails = await Subscriber.find().lean();
+    } catch (e) {
+      console.error("Invalid news file:", e);
     }
-  }
+  })();
   if (!emails.includes(email)) {
-    emails.push(email);
-    fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(emails, null, 2), "utf8");
+    const newSubscriber = new Subscriber({ email });
+    newSubscriber
+      .save()
+      .catch((err) => console.error("Failed to save subscriber:", err));
     const mailOptions = {
       from: "grcanewzz@gmail.com",
       to: email,
@@ -94,10 +104,10 @@ We send messages only when there’s something new — no spam.`,
 
 // --- News Scraper and Mailer ---
 async function checkForNewNews() {
-  let x = [];
   try {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data);
+
     const newsItems = [];
     $("ul.scrollNews li a").each((i, el) => {
       const title = $(el).text().trim();
@@ -105,48 +115,40 @@ async function checkForNewNews() {
       const fullLink = new URL(href, url).href;
       newsItems.push({ title, link: fullLink });
     });
-    if (fs.existsSync(STATE_FILE)) {
-      const savedNews = fs.readFileSync(STATE_FILE, "utf8");
-      try {
-        x = JSON.parse(savedNews);
-      } catch (e) {
-        console.error("Failed to parse saved news file:", e);
-        x = [];
-      }
+
+    const existingLinks = new Set(
+      (await News.find({}, "link").lean()).map((item) => item.link)
+    );
+
+    const newNews = newsItems.filter((item) => !existingLinks.has(item.link));
+
+    if (!newNews.length) {
+      return;
+    } else {
+      await News.deleteMany({}); // drop everything
+      await News.insertMany(newsItems);
     }
-    const oldLinks = new Set(x.map((item) => item.link));
-    const newNews = newsItems.filter((item) => !oldLinks.has(item.link));
-    if (newNews.length > 0) {
-      let mails = [];
-      if (fs.existsSync(SUBSCRIBERS_FILE)) {
-        try {
-          mails = JSON.parse(fs.readFileSync(SUBSCRIBERS_FILE, "utf8"));
-        } catch (e) {
-          console.error("Failed to parse subscribers file:", e);
-        }
-      }
-      if (mails.length > 0) {
-        const mailOptions = {
-          from: "gecanewzz@gmail.com",
-          to: mails,
-          subject: "GECA News Update ",
-          text: newNews
-            .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
-            .join("\n\n"),
-        };
-        try {
-          await transporter.sendMail(mailOptions);
-        } catch (err) {
-          console.error("Failed to send mail:", err);
-        }
-      }
-      x = newsItems;
-      fs.writeFileSync(STATE_FILE, JSON.stringify(x, null, 2), "utf8");
+
+    // Get subscriber emails
+    const subs = await Subscriber.find({}, "email").lean();
+    const emails = subs.map((sub) => sub.email);
+
+    if (!emails.length) {
+      return;
     }
-  } catch (error) {
-    console.error("Error fetching news:", error);
-    return [];
-  }
+
+    // Compose and send mail
+    const mailOptions = {
+      from: "gecanewzz@gmail.com",
+      to: emails,
+      subject: "GECA News Update 📰",
+      text: newNews
+        .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
+        .join("\n\n"),
+    };
+
+    await transporter.sendMail(mailOptions);
+  } catch (error) {}
 }
 
 // --- Scheduler ---
@@ -154,6 +156,4 @@ cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
 
 // --- Start Server ---
 const PORT = process.env.PORT;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => {});
