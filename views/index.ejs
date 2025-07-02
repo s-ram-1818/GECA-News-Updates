@@ -16,6 +16,13 @@
 
     <!-- ---- Marquee / Ticker styles ---- -->
     <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+      }
       .news-ticker {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(4px);
@@ -96,38 +103,6 @@
     class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col items-center py-10 px-4"
   >
     <!-- 🔥 1‑Item News Slider (above the logo) -->
-    <% if (news && news.length) { %>
-    <div class="w-full max-w-4xl mb-10">
-      <div class="relative swiper px-6 md:px-10">
-        <div class="swiper-wrapper">
-          <% news.forEach(function (item) { %>
-          <div class="swiper-slide flex justify-center">
-            <a
-              href="<%= item.link %>"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="block bg-white/10 hover:bg-white/20 transition rounded-xl p-8 shadow-lg backdrop-blur-sm text-center"
-            >
-              <h2 class="text-xl md:text-2xl font-semibold">
-                <%= item.title %>
-              </h2>
-              <% if (item.summary) { %>
-              <p class="mt-2 text-gray-300 line-clamp-2"><%= item.summary %></p>
-              <% } %>
-            </a>
-          </div>
-          <% }); %>
-        </div>
-        <!-- Navigation Buttons -->
-        <div
-          class="swiper-button-prev absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20"
-        ></div>
-        <div
-          class="swiper-button-next absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20"
-        ></div>
-      </div>
-    </div>
-    <% } %>
 
     <!-- 🔥 LOGO -->
     <img
