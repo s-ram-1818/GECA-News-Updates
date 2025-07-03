@@ -204,18 +204,6 @@ async function checkForNewNews() {
     const subs = await Subscriber.find({}, "email").lean();
     const emails = subs.map((sub) => sub.email);
 
-    // const mailOptions = {
-    //   from: process.env.EMAIL_USER,
-    //   to: emails, // array of emails
-    //   subject: "GECA News Update 📰",
-    //   text:
-    //     newNews
-    //       .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
-    //       .join("\n\n") +
-    //     `\n\nIf you no longer wish to receive these updates, click here to unsubscribe:\n${unsubscribeLink}`,
-    // };
-
-    // await transporter.sendMail(mailOptions);
     for (const email of emails) {
       const token = jwt.sign(
         { email },
@@ -246,14 +234,6 @@ async function checkForNewNews() {
     // Optionally log error
   }
 }
-
-// --- Scheduler ---
-cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
-
-// --- Start Server ---
-app.listen(PORT, () => {
-  // Optionally log server start
-});
 
 // --- Scheduler ---
 cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
