@@ -12,6 +12,7 @@ const mongoose = require("mongoose");
 const connectDB = require("./connection.js");
 const { News, Subscriber } = require("./schema.js");
 const jwt = require("jsonwebtoken");
+const { subscribe } = require("diagnostics_channel");
 
 dotenv.config();
 
@@ -78,7 +79,22 @@ app.get("/api/sends", async (req, res) => {
   }
 });
 
-// Email verification
+app.get("/unsubscribe", async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(400).send("Missing token.");
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your_jwt_secret"
+    );
+    const email = decoded.email;
+    await Subscriber.deleteOne({ email });
+    res.status(200).send("You are unsubscribed successfully!");
+  } catch (err) {
+    console.error("Unsubscribe error:", err);
+    res.status(400).send("Invalid or expired token.");
+  }
+});
 
 app.get("/verify-email", async (req, res) => {
   const token = req.query.token;
@@ -89,6 +105,8 @@ app.get("/verify-email", async (req, res) => {
       process.env.JWT_SECRET || "your_jwt_secret"
     );
     const email = decoded.email;
+    const user = await Subscriber.findOne({ email });
+
     const subscriber = new Subscriber({ email });
     await subscriber.save();
 
@@ -121,6 +139,7 @@ app.post("/subscribe", async (req, res) => {
   try {
     const existing = await Subscriber.findOne({ email });
     if (existing) {
+      // alert is not available in Node.js, just send the response
       return res.status(200).send("You are already subscribed!");
     }
     const token = jwt.sign(
@@ -139,7 +158,7 @@ app.post("/subscribe", async (req, res) => {
     return res
       .status(200)
       .send(
-        "Verification email sent! Please check your inbox or spam to confirm your subscription."
+        "Verification link sent! Please check your inbox or spam to confirm your subscription."
       );
   } catch (err) {
     console.error("Subscription error:", err);
@@ -177,18 +196,44 @@ async function checkForNewNews() {
     const subs = await Subscriber.find({}, "email").lean();
     const emails = subs.map((sub) => sub.email);
 
-    if (!emails.length) return;
+    // const mailOptions = {
+    //   from: process.env.EMAIL_USER,
+    //   to: emails, // array of emails
+    //   subject: "GECA News Update 📰",
+    //   text:
+    //     newNews
+    //       .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
+    //       .join("\n\n") +
+    //     `\n\nIf you no longer wish to receive these updates, click here to unsubscribe:\n${unsubscribeLink}`,
+    // };
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: emails,
-      subject: "GECA News Update 📰",
-      text: newNews
-        .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
-        .join("\n\n"),
-    };
+    // await transporter.sendMail(mailOptions);
+    for (const email of emails) {
+      const token = jwt.sign(
+        { email },
+        process.env.JWT_SECRET || "your_jwt_secret",
+        { expiresIn: "15m" }
+      );
+      const verificationLink = `${BASE_URL}/unsubscribe?token=${token}`;
 
-    await transporter.sendMail(mailOptions);
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email, // send only to one user
+        subject: "GECA News Update 📰",
+        text:
+          newNews
+            .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
+            .join("\n\n") +
+          `\n\nIf you no longer wish to receive these updates, click here to unsubscribe:\n${verificationLink}`,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        // console.log(`Email sent to ${email}`);
+      } catch (err) {
+        console.error(`Failed to send to ${email}:`, err.message);
+      }
+    }
   } catch (error) {
     // Optionally log error
   }
