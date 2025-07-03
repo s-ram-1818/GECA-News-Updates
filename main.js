@@ -11,20 +11,25 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const connectDB = require("./connection.js");
 const { News, Subscriber } = require("./schema.js");
+const jwt = require("jsonwebtoken");
 
 dotenv.config();
 
-// --- Constants ---
+// --- App & Config ---
 const app = express();
-
 const url = "https://geca.ac.in/";
+const PORT = process.env.PORT || 4231;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+
+// --- Mail Transporter ---
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "gecanewzz@gmail.com",
-    pass: "qupd fkak gyyo eqao", // Replace with the App Password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
+
 // --- Database Connection ---
 (async () => {
   try {
@@ -34,67 +39,111 @@ const transporter = nodemailer.createTransport({
   }
 })();
 
+// --- Middleware ---
 app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// --- Express Routes ---
+// --- Routes ---
+
+// Home page
 app.get("/", async (req, res) => {
   try {
-    const news = await News.find().lean(); // always fresh
+    const news = await News.find().lean();
     res.render("index", { news });
   } catch (e) {
     console.error("Failed to load news:", e);
     res.status(500).send("Server error");
   }
 });
-app.get("/api/news", (req, res) => {
-  (async () => {
-    try {
-      const news = await News.find().lean();
-      res.send(news);
-    } catch (e) {
-      res.status(500).json({ message: "Failed to load news" });
-    }
-  })();
-});
-app.get("/api/sends", (req, res) => {
-  (async () => {
-    try {
-      const sends = await Subscriber.find().lean();
-      res.send(sends);
-    } catch (e) {
-      console.error("Invalid news file:", e);
-      res.status(500).json({ message: "Failed to load news" });
-    }
-  })();
+
+// API: Get all news
+app.get("/api/news", async (req, res) => {
+  try {
+    const news = await News.find().lean();
+    res.send(news);
+  } catch (e) {
+    res.status(500).json({ message: "Failed to load news" });
+  }
 });
 
+// API: Get all subscribers
+app.get("/api/sends", async (req, res) => {
+  try {
+    const sends = await Subscriber.find().lean();
+    res.send(sends);
+  } catch (e) {
+    console.error("Invalid news file:", e);
+    res.status(500).json({ message: "Failed to load news" });
+  }
+});
+
+// Email verification
+
+app.get("/verify-email", async (req, res) => {
+  const token = req.query.token;
+  if (!token) return res.status(400).send("Missing token.");
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your_jwt_secret"
+    );
+    const email = decoded.email;
+    const subscriber = new Subscriber({ email });
+    await subscriber.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "🎉 Welcome to GECA News Updates!",
+      text: `Hi there,
+Thank you for subscribing to GECA News Updates.
+You'll now receive notifications whenever new notices or announcements are posted on the official GECA website.
+📢 We promise: No spam — only relevant updates.
+
+Regards,  
+GECA News Team`,
+    };
+    await transporter.sendMail(mailOptions);
+    res.status(200).send("Subscription successful! Please check your email.");
+  } catch (err) {
+    console.error("Verification error:", err);
+    res.status(400).send("Invalid or expired token.");
+  }
+});
+
+// Subscribe route
 app.post("/subscribe", async (req, res) => {
   const email = req.body.email;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).send("Invalid email address");
+  }
   try {
     const existing = await Subscriber.findOne({ email });
     if (existing) {
-      return res.send("Already Registered");
+      return res.status(200).send("You are already subscribed!");
     }
-
-    await new Subscriber({ email }).save();
-
-    const mailOptions = {
-      from: "gecanewzz@gmail.com",
+    const token = jwt.sign(
+      { email },
+      process.env.JWT_SECRET || "your_jwt_secret",
+      { expiresIn: "15m" }
+    );
+    const verificationLink = `${BASE_URL}/verify-email?token=${token}`;
+    const verifymail = {
+      from: process.env.EMAIL_USER,
       to: email,
-      subject: "Welcome to GECA News Updates 🎓",
-      text: `Hi there,
-Thank you for subscribing to GECA News Updates.
-From now on, you'll receive email notifications whenever new notices or announcements are posted on the official GECA website.
-We send messages only when there’s something new — no spam.`,
+      subject: "Verify your subscription to GECA News Updates 📧",
+      text: `Please verify your email by clicking the link below:\n${verificationLink}`,
     };
-
-    await transporter.sendMail(mailOptions);
-    res.send("Successfully Registered");
+    transporter.sendMail(verifymail);
+    return res
+      .status(200)
+      .send(
+        "Verification email sent! Please check your inbox or spam to confirm your subscription."
+      );
   } catch (err) {
     console.error("Subscription error:", err);
-    res.status(500).send("Subscription failed");
+    res.status(500).send("Subscription failed. Please try again later.");
   }
 });
 
@@ -121,21 +170,17 @@ async function checkForNewNews() {
     if (!newNews.length) {
       return;
     } else {
-      await News.deleteMany({}); // drop everything
+      await News.deleteMany({});
       await News.insertMany(newsItems);
     }
 
-    // Get subscriber emails
     const subs = await Subscriber.find({}, "email").lean();
     const emails = subs.map((sub) => sub.email);
 
-    if (!emails.length) {
-      return;
-    }
+    if (!emails.length) return;
 
-    // Compose and send mail
     const mailOptions = {
-      from: "gecanewzz@gmail.com",
+      from: process.env.EMAIL_USER,
       to: emails,
       subject: "GECA News Update 📰",
       text: newNews
@@ -144,12 +189,15 @@ async function checkForNewNews() {
     };
 
     await transporter.sendMail(mailOptions);
-  } catch (error) {}
+  } catch (error) {
+    // Optionally log error
+  }
 }
 
 // --- Scheduler ---
 cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
 
 // --- Start Server ---
-const PORT = process.env.PORT;
-app.listen(PORT, () => {});
+app.listen(PORT, () => {
+  // Optionally log server start
+});
