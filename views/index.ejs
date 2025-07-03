@@ -5,41 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GECA News Updates</title>
 
-    <!-- ✅ Tailwind CSS CDN -->
+    <!-- ✅ Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- ✅ Swiper slider (for headline carousel) -->
+    <!-- ✅ Swiper Slider -->
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
     />
 
-    <!-- ---- Marquee / Ticker styles ---- -->
     <style>
-      body {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
+      /* 🌈 Animated Gradient Background */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background: linear-gradient(-45deg, #082b8a, #4b098a, #069c8d, #960606);
+        background-size: 400% 400%;
+        animation: gradient 13s ease infinite;
       }
+
+      @keyframes gradient {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
       .news-ticker {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(4px);
         overflow: hidden;
         white-space: nowrap;
-        position: relative;
         border-top: 1px solid rgba(255, 255, 255, 0.12);
         border-bottom: 1px solid rgba(255, 255, 255, 0.12);
       }
+
       .ticker-slide {
         display: inline-block;
         padding-left: 100%;
         animation: ticker 80s linear infinite;
       }
+
       .news-ticker:hover .ticker-slide {
         animation-play-state: paused;
       }
+
       @keyframes ticker {
         0% {
           transform: translateX(0);
@@ -48,108 +65,31 @@
           transform: translateX(-100%);
         }
       }
+
       .ticker-item {
         display: inline-block;
         padding: 0 2rem;
       }
-
-      /* Limit swiper container width and prevent overflow */
-      .swiper {
-        position: relative;
-        max-width: 100%;
-        overflow: hidden;
-      }
-
-      /* Position buttons inside with fixed size and padding */
-      .swiper-button-prev,
-      .swiper-button-next {
-        position: absolute;
-        top: 50%;
-        width: 2.5rem;
-        height: 2.5rem;
-        margin-top: -1.25rem;
-        z-index: 10;
-        color: #ffffff;
-        opacity: 0.8;
-        transition: opacity 0.2s ease;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 9999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .swiper-button-prev {
-        left: 8px;
-      }
-
-      .swiper-button-next {
-        right: 8px;
-      }
-
-      .swiper-button-prev:hover,
-      .swiper-button-next:hover {
-        opacity: 1;
-      }
-
-      .swiper-button-prev::after,
-      .swiper-button-next::after {
-        font-size: 20px;
-        font-weight: 700;
-      }
     </style>
   </head>
   <body
-    class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col items-center py-10 px-4"
+    class="min-h-screen text-white flex flex-col justify-center items-center px-4"
   >
-    <!-- 🔥 1‑Item News Slider (above the logo) -->
-
-    <!-- 🔥 LOGO -->
+    <!-- 🔥 Logo -->
     <img
       src="/logo.jpg"
       alt="GECA Logo"
-      class="w-40 md:w-48 mb-8 drop-shadow-2xl rounded-lg"
+      class="w-32 md:w-40 mb-2 rounded-xl shadow-2xl transition-transform hover:scale-105"
     />
 
-    <!-- 🔥 HEADING -->
-    <h3 class="text-xl md:text-4xl text-center mb-6">
+    <!-- 🔥 Heading -->
+    <h3 class="text-lg md:text-3xl text-center mb-4">
       Want to stay updated?<br />
       Subscribe to <strong>GECA News Updates</strong> for the latest news!
     </h3>
 
-    <!-- 🔥 MESSAGE ALERT -->
-    <% if (typeof message !== "undefined" && message) { %>
-    <div
-      id="server-message"
-      class="mb-4 px-4 py-3 rounded bg-green-600 text-white text-center font-semibold shadow"
-    >
-      <%= message %>
-    </div>
-    <% } %>
-
-    <!-- 🔥 SUBSCRIBE FORM -->
-    <form
-      action="/subscribe"
-      method="POST"
-      class="w-full max-w-xl flex flex-col sm:flex-row gap-4 justify-center mb-10"
-    >
-      <input
-        type="email"
-        name="email"
-        placeholder="Enter your email"
-        required
-        class="flex-1 rounded-xl py-3 px-5 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-lg"
-      />
-      <button
-        type="submit"
-        class="rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-6 py-3 font-semibold shadow-lg transition"
-      >
-        Subscribe
-      </button>
-    </form>
-
-    <!-- 🔥 Marquee / News Ticker -->
-    <div class="news-ticker w-full py-2">
+    <!-- 🔥 News Ticker -->
+    <div class="news-ticker w-full py-2 mb-6">
       <% if (news && news.length) { %>
       <div class="ticker-slide">
         <% news.forEach(function (item, index) { %>
@@ -158,7 +98,7 @@
             href="<%= item.link %>"
             target="_blank"
             rel="noopener"
-            class="text-blue-400 hover:underline font-medium"
+            class="text-yellow-300 hover:underline font-medium"
             ><%= item.title %></a
           >
           <% if (index < news.length - 1) { %> | <% } %>
@@ -166,29 +106,73 @@
         <% }); %>
       </div>
       <% } else { %>
-      <div class="p-2 text-center text-gray-400">No news to display.</div>
+      <div class="p-2 text-center text-gray-300">No news to display.</div>
       <% } %>
     </div>
 
+    <!-- 🔥 Message -->
+    <% if (typeof message !== "undefined" && message) { %>
+    <div
+      id="server-message"
+      class="mb-4 px-4 py-2 rounded bg-green-600 text-white text-center font-semibold shadow"
+    >
+      <%= message %>
+    </div>
+    <% } %>
+
+    <!-- 🔥 Subscribe Form -->
+    <form
+      action="/subscribe"
+      method="POST"
+      class="w-full max-w-xl flex flex-col sm:flex-row gap-3 justify-center mb-6"
+    >
+      <input
+        type="email"
+        name="email"
+        placeholder="Enter your email"
+        required
+        class="flex-1 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-lg"
+      />
+      <button
+        type="submit"
+        class="rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 font-semibold shadow-lg transition"
+      >
+        Subscribe
+      </button>
+    </form>
+
+    <!-- 🔥 Benefits -->
+    <div
+      class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mt-2 text-gray-200"
+    >
+      <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
+        <h4 class="text-md font-bold mb-1">📢 Instant Alerts</h4>
+        <p class="text-sm">
+          Get notified as soon as a new announcement is posted.
+        </p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
+        <h4 class="text-md font-bold mb-1">📅 Never Miss a Notice</h4>
+        <p class="text-sm">Stay ahead of deadlines and events from GECA.</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
+        <h4 class="text-md font-bold mb-1">🛡️ Spam-Free Guarantee</h4>
+        <p class="text-sm">Only relevant updates. No spam, ever.</p>
+      </div>
+      <div class="bg-gray-800 rounded-2xl p-4 shadow-lg border border-gray-700">
+        <h4 class="text-md font-bold mb-1">📬 Simple Unsubscribe</h4>
+        <p class="text-sm">You’re in control. Leave anytime with one click.</p>
+      </div>
+    </div>
+
+    <!-- 🔥 Footer -->
+    <footer class="mt-8 text-xs text-gray-400 text-center">
+      &copy; <%= new Date().getFullYear() %> GECA News Updates · Made with ❤️
+    </footer>
+
+    <!-- 🔝 Scroll to Top -->
+
     <!-- ✅ Swiper JS -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
-    <script>
-      // Initialize the single‑slide Swiper with navigation buttons
-      document.addEventListener("DOMContentLoaded", () => {
-        new Swiper(".swiper", {
-          loop: true,
-          effect: "fade",
-          fadeEffect: { crossFade: true },
-          autoplay: {
-            delay: 5000,
-            disableOnInteraction: false,
-          },
-          navigation: {
-            nextEl: ".swiper-button-next",
-            prevEl: ".swiper-button-prev",
-          },
-        });
-      });
-    </script>
   </body>
 </html>

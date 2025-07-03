@@ -117,7 +117,12 @@ app.get("/verify-email", async (req, res) => {
       const subscriber = new Subscriber({ email });
       await subscriber.save();
     }
-
+    const newtoken = jwt.sign(
+      { email },
+      process.env.JWT_SECRET || "your_jwt_secret",
+      { expiresIn: "15m" }
+    );
+    const verificationLink = `${BASE_URL}/unsubscribe?token=${token}`;
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -126,6 +131,9 @@ app.get("/verify-email", async (req, res) => {
 Thank you for subscribing to GECA News Updates.
 You'll now receive notifications whenever new notices or announcements are posted on the official GECA website.
 📢 We promise: No spam — only relevant updates.
+
+if you want to unsubscribe then click 
+${verificationLink}
 
 Regards,  
 GECA News Team`,
@@ -236,7 +244,15 @@ async function checkForNewNews() {
 }
 
 // --- Scheduler ---
-cron.schedule("0 * * * * *", checkForNewNews); // Every 10 seconds
+cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
+
+// --- Start Server ---
+app.listen(PORT, () => {
+  // Optionally log server start
+});
+
+// --- Scheduler ---
+cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
 
 // --- Start Server ---
 app.listen(PORT, () => {
