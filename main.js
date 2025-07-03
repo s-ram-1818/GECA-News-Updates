@@ -236,7 +236,7 @@ async function checkForNewNews() {
 }
 
 // --- Scheduler ---
-cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
+cron.schedule("0 * * * * *", checkForNewNews); // Every 10 seconds
 
 // --- Start Server ---
 app.listen(PORT, () => {
