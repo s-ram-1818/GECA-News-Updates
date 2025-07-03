@@ -12,7 +12,6 @@ const mongoose = require("mongoose");
 const connectDB = require("./connection.js");
 const { News, Subscriber } = require("./schema.js");
 const jwt = require("jsonwebtoken");
-const { subscribe } = require("diagnostics_channel");
 
 dotenv.config();
 
@@ -45,13 +44,20 @@ app.set("view engine", "ejs");
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// --- Helper: redirect to home with message in query string
+function redirectWithMessage(res, message) {
+  res.redirect("/?message=" + encodeURIComponent(message));
+}
+
 // --- Routes ---
 
 // Home page
 app.get("/", async (req, res) => {
   try {
     const news = await News.find().lean();
-    res.render("index", { news });
+    // Get message from query string if present
+    const message = req.query.message;
+    res.render("index", { news, message });
   } catch (e) {
     console.error("Failed to load news:", e);
     res.status(500).send("Server error");
@@ -89,7 +95,7 @@ app.get("/unsubscribe", async (req, res) => {
     );
     const email = decoded.email;
     await Subscriber.deleteOne({ email });
-    res.status(200).send("You are unsubscribed successfully!");
+    redirectWithMessage(res, "You are unsubscribed successfully!");
   } catch (err) {
     console.error("Unsubscribe error:", err);
     res.status(400).send("Invalid or expired token.");
@@ -107,8 +113,10 @@ app.get("/verify-email", async (req, res) => {
     const email = decoded.email;
     const user = await Subscriber.findOne({ email });
 
-    const subscriber = new Subscriber({ email });
-    await subscriber.save();
+    if (!user) {
+      const subscriber = new Subscriber({ email });
+      await subscriber.save();
+    }
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -123,7 +131,7 @@ Regards,
 GECA News Team`,
     };
     await transporter.sendMail(mailOptions);
-    res.status(200).send("Subscription successful! Please check your email.");
+    redirectWithMessage(res, "Subscription successful! ");
   } catch (err) {
     console.error("Verification error:", err);
     res.status(400).send("Invalid or expired token.");
@@ -134,13 +142,14 @@ GECA News Team`,
 app.post("/subscribe", async (req, res) => {
   const email = req.body.email;
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).send("Invalid email address");
+    redirectWithMessage(res, "Invalid email address");
+    return;
   }
   try {
     const existing = await Subscriber.findOne({ email });
     if (existing) {
-      // alert is not available in Node.js, just send the response
-      return res.status(200).send("You are already subscribed!");
+      redirectWithMessage(res, "You are already subscribed!");
+      return;
     }
     const token = jwt.sign(
       { email },
@@ -155,14 +164,13 @@ app.post("/subscribe", async (req, res) => {
       text: `Please verify your email by clicking the link below:\n${verificationLink}`,
     };
     transporter.sendMail(verifymail);
-    return res
-      .status(200)
-      .send(
-        "Verification link sent! Please check your inbox or spam to confirm your subscription."
-      );
+    redirectWithMessage(
+      res,
+      "Verification link sent! Please check your inbox or spam to confirm your subscription."
+    );
   } catch (err) {
     console.error("Subscription error:", err);
-    res.status(500).send("Subscription failed. Please try again later.");
+    redirectWithMessage(res, "Subscription failed. Please try again later.");
   }
 });
 
@@ -238,6 +246,14 @@ async function checkForNewNews() {
     // Optionally log error
   }
 }
+
+// --- Scheduler ---
+cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
+
+// --- Start Server ---
+app.listen(PORT, () => {
+  // Optionally log server start
+});
 
 // --- Scheduler ---
 cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds

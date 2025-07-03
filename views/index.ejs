@@ -117,6 +117,16 @@
       Subscribe to <strong>GECA News Updates</strong> for the latest news!
     </h3>
 
+    <!-- 🔥 MESSAGE ALERT -->
+    <% if (typeof message !== "undefined" && message) { %>
+    <div
+      id="server-message"
+      class="mb-4 px-4 py-3 rounded bg-green-600 text-white text-center font-semibold shadow"
+    >
+      <%= message %>
+    </div>
+    <% } %>
+
     <!-- 🔥 SUBSCRIBE FORM -->
     <form
       action="/subscribe"
