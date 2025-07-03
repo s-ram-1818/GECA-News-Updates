@@ -112,11 +112,14 @@ app.get("/verify-email", async (req, res) => {
     );
     const email = decoded.email;
     const user = await Subscriber.findOne({ email });
-
-    if (!user) {
-      const subscriber = new Subscriber({ email });
-      await subscriber.save();
+    if (user) {
+      redirectWithMessage(res, "You are already subscribed!");
+      return;
     }
+
+    const subscriber = new Subscriber({ email });
+    await subscriber.save();
+
     const newtoken = jwt.sign(
       { email },
       process.env.JWT_SECRET || "your_jwt_secret",
