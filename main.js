@@ -53,6 +53,7 @@ function redirectWithMessage(res, message) {
 
 // Home page
 app.get("/", async (req, res) => {
+  console.log("Home page accessed");
   try {
     const news = await News.find().lean();
     // Get message from query string if present
@@ -186,6 +187,7 @@ app.post("/subscribe", async (req, res) => {
 
 // --- News Scraper and Mailer ---
 async function checkForNewNews() {
+  console.log("Checking for new news...");
   try {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data);
@@ -255,9 +257,3 @@ app.listen(PORT, () => {
 });
 
 // --- Scheduler ---
-cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
-
-// --- Start Server ---
-app.listen(PORT, () => {
-  // Optionally log server start
-});
