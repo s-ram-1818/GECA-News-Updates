@@ -232,7 +232,8 @@ async function checkForNewNews() {
           newNews
             .map((item, i) => `${i + 1}. ${item.title}\n${item.link}`)
             .join("\n\n") +
-          `\n\nIf you no longer wish to receive these updates, click here to unsubscribe:\n${verificationLink}`,
+          `\n\nIf you no longer wish to receive these updates, click here to unsubscribe:
+          \n${verificationLink}\nvalid for 15 minutes.\n\nRegards,\nGECA News Team`,
       };
 
       try {
