@@ -137,6 +137,7 @@ You'll now receive notifications whenever new notices or announcements are poste
 
 if you want to unsubscribe then click 
 ${verificationLink}
+valid for 15 minutes.
 
 Regards,  
 GECA News Team`,
