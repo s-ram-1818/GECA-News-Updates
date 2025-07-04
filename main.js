@@ -135,9 +135,7 @@ Thank you for subscribing to GECA News Updates.
 You'll now receive notifications whenever new notices or announcements are posted on the official GECA website.
 📢 We promise: No spam — only relevant updates.
 
-if you want to unsubscribe then click 
-${verificationLink}
-valid for 15 minutes.
+if you want to unsubscribe then click \n${verificationLink}\nvalid for 15 minutes.
 
 Regards,  
 GECA News Team`,
@@ -173,7 +171,7 @@ app.post("/subscribe", async (req, res) => {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Verify your subscription to GECA News Updates 📧",
-      text: `Please verify your email by clicking the link below:\n${verificationLink}`,
+      text: `Please verify your email by clicking the link below:\n${verificationLink}\nvalid for 15 minutes.\n\nRegards,\nGECA News Team`,
     };
     transporter.sendMail(verifymail);
     redirectWithMessage(
