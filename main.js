@@ -98,8 +98,7 @@ app.get("/unsubscribe", async (req, res) => {
     await Subscriber.deleteOne({ email });
     redirectWithMessage(res, "You are unsubscribed successfully!");
   } catch (err) {
-    console.error("Unsubscribe error:", err);
-    res.status(400).send("Invalid or expired token.");
+    redirectWithMessage(res, "invalid or expired token. Please try again.");
   }
 });
 
@@ -144,8 +143,7 @@ GECA News Team`,
     await transporter.sendMail(mailOptions);
     redirectWithMessage(res, "Subscription successful! ");
   } catch (err) {
-    console.error("Verification error:", err);
-    res.status(400).send("Invalid or expired token.");
+    redirectWithMessage(res, "invalid or expired token. Please try again.");
   }
 });
 
@@ -175,9 +173,12 @@ app.post("/subscribe", async (req, res) => {
       text: `Please verify your email by clicking the link below:\n${verificationLink}\nvalid for 15 minutes.\n\nRegards,\nGECA News Team`,
     };
     transporter.sendMail(verifymail);
+    let msg = `verificatin link sent to ${email}.\n
+Please check your inbox. If you don't see it there, kindly check your spam folder.`;
     redirectWithMessage(
       res,
-      "Verification link sent! Please check your inbox or spam to confirm your subscription."
+      `Verification link sent!
+Please check your inbox. If you don't see it there, kindly check your spam folder.`
     );
   } catch (err) {
     console.error("Subscription error:", err);
@@ -208,10 +209,9 @@ async function checkForNewNews() {
 
     if (!newNews.length) {
       return;
-    } else {
-      await News.deleteMany({});
-      await News.insertMany(newsItems);
     }
+    await News.deleteMany({});
+    await News.insertMany(newsItems);
 
     const subs = await Subscriber.find({}, "email").lean();
     const emails = subs.map((sub) => sub.email);
@@ -249,7 +249,7 @@ async function checkForNewNews() {
 }
 
 // --- Scheduler ---
-cron.schedule("*/10 * * * * *", checkForNewNews); // Every 10 seconds
+cron.schedule("*/3 * * * *", checkForNewNews); // Every 3 seconds
 
 // --- Start Server ---
 app.listen(PORT, () => {
