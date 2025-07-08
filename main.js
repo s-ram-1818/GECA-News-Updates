@@ -12,6 +12,8 @@ const mongoose = require("mongoose");
 const connectDB = require("./connection.js");
 const { News, Subscriber } = require("./schema.js");
 const jwt = require("jsonwebtoken");
+const dns = require("dns");
+const { Domain } = require("domain");
 
 dotenv.config();
 
@@ -22,6 +24,22 @@ const PORT = process.env.PORT || 4231;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // --- Mail Transporter ---
+// check Domain
+function checkEmailDomain(email) {
+  return new Promise((resolve, reject) => {
+    const domain = email.split("@")[1];
+
+    if (!domain) return reject("Invalid email format");
+
+    dns.resolveMx(domain, (err, addresses) => {
+      if (err || addresses.length === 0) {
+        return reject("Domain cannot receive emails");
+      }
+      resolve("Domain is valid");
+    });
+  });
+}
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -162,6 +180,8 @@ app.post("/subscribe", async (req, res) => {
       redirectWithMessage(res, "You are already subscribed!");
       return;
     }
+    // Check if the email domain is valid
+    await checkEmailDomain(email);
     const token = jwt.sign(
       { email },
       process.env.JWT_SECRET || "your_jwt_secret",
