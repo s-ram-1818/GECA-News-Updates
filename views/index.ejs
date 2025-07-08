@@ -121,25 +121,46 @@
     <% } %>
 
     <!-- 🔥 Subscribe Form -->
+    <!-- 🔥 Subscribe Form -->
+    <!-- 🔥 Subscribe Form -->
     <form
       action="/subscribe"
       method="POST"
-      class="w-full max-w-xl flex flex-col sm:flex-row gap-3 justify-center mb-6"
+      class="w-full max-w-2xl p-6 rounded-2xl space-y-6"
     >
-      <input
-        type="email"
-        name="email"
-        placeholder="Enter your email"
-        required
-        class="flex-1 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-lg"
-      />
-      <button
-        type="submit"
-        class="rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 font-semibold shadow-lg transition"
-      >
-        Subscribe
-      </button>
+      <!-- Heading -->
+
+      <!-- Input and Button: Stacked on mobile, inline on larger screens -->
+      <div class="flex flex-col sm:flex-row gap-4">
+        <input
+          type="email"
+          name="email"
+          placeholder="Enter your email"
+          required
+          class="flex-1 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-inner"
+        />
+        <button
+          type="submit"
+          class="rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 text-white font-semibold shadow-md transition w-full sm:w-auto"
+        >
+          Subscribe
+        </button>
+      </div>
+
+      <!-- reCAPTCHA -->
+      <div class="flex justify-center">
+        <div
+          class="g-recaptcha"
+          data-sitekey="<%= siteKey %>"
+          data-theme="dark"
+        ></div>
+      </div>
     </form>
+
+    <!-- reCAPTCHA script -->
+
+    <!-- reCAPTCHA script -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
     <!-- 🔥 Benefits -->
     <div

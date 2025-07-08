@@ -14,6 +14,7 @@ const { News, Subscriber } = require("./schema.js");
 const jwt = require("jsonwebtoken");
 const dns = require("dns");
 const { Domain } = require("domain");
+const rateLimit = require("express-rate-limit");
 
 dotenv.config();
 
@@ -22,9 +23,25 @@ const app = express();
 const url = "https://geca.ac.in/";
 const PORT = process.env.PORT || 4231;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // limit each IP to 100 requests per 15 minutes
+  message: "Too many requests from this IP. Please try again after 15 minutes.",
+});
 
 // --- Mail Transporter ---
 // check Domain
+app.use(globalLimiter); // <-- apply globally
+app.use(
+  "/subscribe",
+  rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 5,
+    message: "Too many subscription attempts. Please wait.",
+  })
+);
+dns.setServers(["8.8.8.8"]);
+
 function checkEmailDomain(email) {
   return new Promise((resolve, reject) => {
     const domain = email.split("@")[1];
@@ -76,7 +93,11 @@ app.get("/", async (req, res) => {
     const news = await News.find().lean();
     // Get message from query string if present
     const message = req.query.message;
-    res.render("index", { news, message });
+    res.render("index", {
+      news,
+      message,
+      siteKey: process.env.RECAPTCHA_SITE_KEY,
+    });
   } catch (e) {
     console.error("Failed to load news:", e);
     res.status(500).send("Server error");
@@ -168,9 +189,13 @@ GECA News Team`,
 // Subscribe route
 app.post("/subscribe", async (req, res) => {
   const email = req.body.email;
+  const captchaToken = req.body["g-recaptcha-response"];
+  if (!captchaToken) {
+    return redirectWithMessage(res, "Please complete the CAPTCHA.");
+  }
 
-  if (!email || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
-    redirectWithMessage(res, "Invalid email address");
+  if (!email) {
+    redirectWithMessage(res, "Email is required");
     return;
   }
 
@@ -181,6 +206,17 @@ app.post("/subscribe", async (req, res) => {
       return;
     }
     // Check if the email domain is valid
+    const verifyURL = `https://www.google.com/recaptcha/api/siteverify`;
+    const params = new URLSearchParams({
+      secret: process.env.RECAPTCHA_SECRET_KEY,
+      response: captchaToken,
+    });
+
+    const { data } = await axios.post(verifyURL, params);
+
+    if (!data.success) {
+      return redirectWithMessage(res, "reCAPTCHA verification failed.");
+    }
     await checkEmailDomain(email);
     const token = jwt.sign(
       { email },
