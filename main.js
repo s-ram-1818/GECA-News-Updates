@@ -150,10 +150,12 @@ GECA News Team`,
 // Subscribe route
 app.post("/subscribe", async (req, res) => {
   const email = req.body.email;
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+
+  if (!email || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
     redirectWithMessage(res, "Invalid email address");
     return;
   }
+
   try {
     const existing = await Subscriber.findOne({ email });
     if (existing) {
@@ -249,7 +251,7 @@ async function checkForNewNews() {
 }
 
 // --- Scheduler ---
-cron.schedule("*/3 * * * *", checkForNewNews); // Every 3 seconds
+cron.schedule("*/3 * * * *", checkForNewNews); // Every 3 min
 
 // --- Start Server ---
 app.listen(PORT, () => {
