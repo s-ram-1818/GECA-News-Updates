@@ -67,7 +67,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
+      callbackURL: `${process.env.BASE_URL}/auth/google/callback`,
     },
     (accessToken, refreshToken, profile, done) => {
       return done(null, profile);
@@ -96,7 +96,7 @@ app.get("/", async (req, res) => {
 app.get(
   "/auth/google",
   passport.authenticate("google", {
-    scope: ["profile", "email"],
+    scope: ["email"],
   })
 );
 
@@ -146,6 +146,10 @@ app.get("/unsubscribe", async (req, res) => {
 });
 
 app.get("/verify-email", async (req, res) => {
+  if (!req.user || !req.user.emails || !req.user.emails[0]) {
+    return res.redirect("/auth/google");
+  }
+
   const email = req.user.emails[0].value;
   try {
     const user = await Subscriber.findOne({ email });
@@ -179,7 +183,7 @@ Government College of Engineering, Aurangabad
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "🎉 Welcome to GECA News Updates!",
+      subject: "Welcome to GECA News Updates!",
       text: welcomeText,
       html: `
   <h3>Welcome to GECA News Updates 📢</h3>
