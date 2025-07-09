@@ -28,18 +28,22 @@ app.use(bodyParser.urlencoded({ extended: true })); // For HTML form data
 app.use(express.static("public"));
 
 // --- Rate Limiters ---
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
-  message: "Too many requests from this IP. Please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests, please try again later.",
 });
-app.use(globalLimiter);
+app.use(limiter);
 
 app.use(
   "/subscribe",
   rateLimit({
     windowMs: 10 * 60 * 1000,
     max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: "Too many subscription attempts. Please wait.",
   })
 );
