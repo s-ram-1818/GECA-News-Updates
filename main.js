@@ -28,14 +28,6 @@ app.use(bodyParser.urlencoded({ extended: true })); // For HTML form data
 app.use(express.static("public"));
 
 // --- Rate Limiters ---
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: "Too many requests, please try again later.",
-});
-app.use(limiter);
 
 app.use(
   "/subscribe",
