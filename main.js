@@ -188,7 +188,10 @@ app.post("/subscribe", async (req, res) => {
     };
     await transporter.sendMail(mailOptions);
 
-    redirectWithMessage(res, "Verification link sent! Check your inbox.");
+    redirectWithMessage(
+      res,
+      "Verification link sent! Check your inbox or spam."
+    );
   } catch (err) {
     console.error("Subscription error:", err.message);
     redirectWithMessage(res, "Subscription failed. Try again later.");
