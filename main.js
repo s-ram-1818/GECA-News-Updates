@@ -110,40 +110,55 @@ app.get(
     failureRedirect: "/subscribe-fail",
   }),
   async (req, res) => {
+    const email = req.user.emails[0].value;
     try {
-      const email = req.user.email;
+      const user = await Subscriber.findOne({ email });
+      if (user) return redirectWithMessage(res, "You are already subscribed!");
 
-      // Don't send welcome email again if already subscribed
-      const existing = await Subscriber.findOne({ email });
-      if (!existing) {
-        await Subscriber.create({ email });
+      await new Subscriber({ email }).save();
 
-        // Send welcome mail
-        const unsubscribeToken = jwt.sign(
-          { email },
-          process.env.JWT_SECRET || "your_jwt_secret",
-          { expiresIn: "15m" }
-        );
-        const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
+      const unsubscribeToken = jwt.sign(
+        { email },
+        process.env.JWT_SECRET || "your_jwt_secret",
+        { expiresIn: "15m" }
+      );
+      const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
+      const welcomeText = `
+Welcome to GECA News Updates 📢
 
-        await transporter.sendMail({
-          from: process.env.EMAIL_USER,
-          to: email,
-          subject: "Welcome to GECA News Updates!",
-          text: `You've successfully subscribed! Unsubscribe: ${unsubscribeLink}`,
-          html: `<p>You've successfully subscribed to GECA News Updates.</p><a href="${unsubscribeLink}">Unsubscribe</a>`,
-        });
-      }
+Hi there,
 
-      // ✅ Send plain text or HTML message instead of redirect
-      res.send(`
-        <h2>✅ Subscription Successful!</h2>
-        <p>Email: <strong>${email}</strong></p>
-        <p>You can close this window.</p>
-      `);
-    } catch (err) {
-      console.error("Callback error:", err.message);
-      res.status(500).send("Something went wrong. Try again.");
+We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from Government College of Engineering, Aurangabad (GECA).
+
+We'll make sure you're always in the loop.
+
+If you ever wish to unsubscribe, you can do so using the link below:
+Unsubscribe: ${unsubscribeLink}
+
+Regards,  
+GECA News Team  
+Government College of Engineering, Aurangabad
+`;
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Welcome to GECA News Updates!",
+        text: welcomeText,
+        html: `
+  <h3>Welcome to GECA News Updates 📢</h3>
+  <p>Hi there,</p>
+  <p>We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from <strong>Government College of Engineering, Aurangabad (GECA)</strong>.</p>
+  <p>We'll make sure you're always in the loop.</p>
+  <p>If you ever wish to unsubscribe, you can do so by clicking the link below:</p>
+  <p><a href="${unsubscribeLink}">Unsubscribe</a></p>
+  <p>Regards,<br/>GECA News Team<br/>Government College of Engineering, Aurangabad</p>
+`,
+      };
+      await transporter.sendMail(mailOptions);
+      redirectWithMessage(res, "Subscription successful!");
+    } catch {
+      redirectWithMessage(res, "Subscription Failed!");
     }
   }
 );
