@@ -135,12 +135,37 @@ app.get("/verify-email", async (req, res) => {
       { expiresIn: "15m" }
     );
     const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
+    const welcomeText = `
+Welcome to GECA News Updates 📢
+
+Hi there,
+
+We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from Government College of Engineering, Aurangabad (GECA).
+
+We'll make sure you're always in the loop.
+
+If you ever wish to unsubscribe, you can do so using the link below:
+Unsubscribe: ${unsubscribeLink}
+
+Regards,  
+GECA News Team  
+Government College of Engineering, Aurangabad
+`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "🎉 Welcome to GECA News Updates!",
-      text: `Hi there,\nYou're now subscribed to GECA News Updates.\nTo unsubscribe: ${unsubscribeLink}\n\nRegards,\nGECA News Team`,
+      text: welcomeText,
+      html: `
+  <h3>Welcome to GECA News Updates 📢</h3>
+  <p>Hi there,</p>
+  <p>We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from <strong>Government College of Engineering, Aurangabad (GECA)</strong>.</p>
+  <p>We'll make sure you're always in the loop.</p>
+  <p>If you ever wish to unsubscribe, you can do so by clicking the link below:</p>
+  <p><a href="${unsubscribeLink}">Unsubscribe</a></p>
+  <p>Regards,<br/>GECA News Team<br/>Government College of Engineering, Aurangabad</p>
+`,
     };
     await transporter.sendMail(mailOptions);
     redirectWithMessage(res, "Subscription successful!");
@@ -179,12 +204,35 @@ app.post("/subscribe", async (req, res) => {
       { expiresIn: "15m" }
     );
     const verificationLink = `${BASE_URL}/verify-email?token=${token}`;
+    const verificationText = `
+GECA News Updates 📧
+
+Thank you for subscribing to receive the latest news from Government College of Engineering, Aurangabad (GECA).
+
+Please verify your email by clicking the link below:
+Verify Now: ${verificationLink}
+
+This link is valid for 15 minutes.
+
+Regards,  
+GECA News Updates Team
+`;
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Verify your subscription to GECA News Updates 📧",
-      text: `Click to verify: ${verificationLink}\n\nValid for 15 minutes.`,
+      text: verificationText,
+      html: `
+  <h3>GECA News Updates 📢</h3>
+  <p>Thank you for subscribing to receive the latest news from Government College of Engineering, Aurangabad (GECA).</p>
+  <p>Please verify your email by clicking the link below:</p>
+  <p><a href="${verificationLink}">Verify Now</a></p>
+  <p>This link is valid for 15 minutes.</p>
+  <p>Regards,<br/>GECA News Updates Team</p>
+  <hr />
+  <p><small>If you did not request this subscription, you can safely ignore this email.</small></p>
+`,
     };
     await transporter.sendMail(mailOptions);
 
@@ -227,19 +275,47 @@ async function checkForNewNews() {
       const unsubscribeToken = jwt.sign(
         { email },
         process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "15m" }
+        { expiresIn: "30d " }
       );
       const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
-      const body =
-        newNews.map((n, i) => `${i + 1}. ${n.title}\n${n.link}`).join("\n\n") +
-        `\n\nTo unsubscribe: ${unsubscribeLink}`;
+      const bodyText = `
+GECA News Updates 📰
+
+Hi there,
+
+Here are the latest updates from Government College of Engineering, Aurangabad (GECA):
+
+${newNews.map((n, i) => `${i + 1}. ${n.title}\n${n.link}`).join("\n\n")}
+
+You are receiving this email because you subscribed to GECA News Updates.
+
+To unsubscribe: ${unsubscribeLink}
+
+Regards,  
+GECA News Team
+`;
+
+      const bodyHtml = `
+  <h3>GECA News Updates 📰</h3>
+  <p>Hi there,</p>
+  <p>Here are the latest updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>:</p>
+  <ol>
+    ${newNews
+      .map((n) => `<li><a href="${n.link}">${n.title}</a></li>`)
+      .join("")}
+  </ol>
+  <p>You’re receiving this email because you subscribed to GECA News Updates.</p>
+  <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeLink}">unsubscribe here</a>.</p>
+  <p>Regards,<br/>GECA News Team</p>
+`;
 
       try {
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
           to: email,
           subject: "GECA News Update 📰",
-          text: body,
+          text: bodyText,
+          html: bodyHtml,
         });
       } catch (err) {
         console.error(`Failed to send to ${email}:`, err.message);
