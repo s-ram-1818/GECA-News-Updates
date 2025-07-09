@@ -27,20 +27,6 @@ app.use(express.json()); // For JSON POST data (like spam.js)
 app.use(bodyParser.urlencoded({ extended: true })); // For HTML form data
 app.use(express.static("public"));
 
-// --- Rate Limiters ---
-
-app.use(
-  "/subscribe",
-  rateLimit({
-    windowMs: 10 * 60 * 1000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: "Too many subscription attempts. Please wait.",
-  })
-);
-
-// --- DNS for MX record check ---
 dns.setServers(["8.8.8.8"]);
 function checkEmailDomain(email) {
   return new Promise((resolve, reject) => {
