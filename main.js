@@ -79,6 +79,10 @@ passport.use(
 function redirectWithMessage(res, message) {
   res.redirect("/?message=" + encodeURIComponent(message));
 }
+function ensureAuth(req, res, next) {
+  if (!req.user) return res.redirect("/auth/google");
+  next();
+}
 
 // --- Routes ---
 app.get("/", async (req, res) => {
@@ -145,11 +149,7 @@ app.get("/unsubscribe", async (req, res) => {
   }
 });
 
-app.get("/verify-email", async (req, res) => {
-  if (!req.user || !req.user.emails || !req.user.emails[0]) {
-    return res.redirect("/auth/google");
-  }
-
+app.get("/verify-email", ensureAuth, async (req, res) => {
   const email = req.user.emails[0].value;
   try {
     const user = await Subscriber.findOne({ email });
