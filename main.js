@@ -106,14 +106,50 @@ app.get(
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/subscribe-fail" }),
+  passport.authenticate("google", {
+    failureRedirect: "/subscribe-fail",
+  }),
   async (req, res) => {
-    res.redirect("/verify-email");
+    try {
+      const email = req.user.email;
+
+      // Don't send welcome email again if already subscribed
+      const existing = await Subscriber.findOne({ email });
+      if (!existing) {
+        await Subscriber.create({ email });
+
+        // Send welcome mail
+        const unsubscribeToken = jwt.sign(
+          { email },
+          process.env.JWT_SECRET || "your_jwt_secret",
+          { expiresIn: "15m" }
+        );
+        const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
+
+        await transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: "Welcome to GECA News Updates!",
+          text: `You've successfully subscribed! Unsubscribe: ${unsubscribeLink}`,
+          html: `<p>You've successfully subscribed to GECA News Updates.</p><a href="${unsubscribeLink}">Unsubscribe</a>`,
+        });
+      }
+
+      // ✅ Send plain text or HTML message instead of redirect
+      res.send(`
+        <h2>✅ Subscription Successful!</h2>
+        <p>Email: <strong>${email}</strong></p>
+        <p>You can close this window.</p>
+      `);
+    } catch (err) {
+      console.error("Callback error:", err.message);
+      res.status(500).send("Something went wrong. Try again.");
+    }
   }
 );
 
 app.get("/subscribe-fail", (req, res) => {
-  redirectWithMessage(res, "<h2>❌ Subscription Failed</h2>");
+  redirectWithMessage(res, "Subscription Failed");
 });
 
 app.get("/api/news", async (req, res) => {
