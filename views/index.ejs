@@ -8,12 +8,6 @@
     <!-- ✅ Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- ✅ Swiper Slider -->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
-    />
-
     <style>
       /* 🌈 Animated Gradient Background */
       body::before {
@@ -70,10 +64,28 @@
         display: inline-block;
         padding: 0 2rem;
       }
+
+      @keyframes trainMove {
+        0% {
+          transform: translateX(0) scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: translateX(150px) scale(1.1);
+        }
+        100% {
+          transform: translateX(1000px) scale(0.95);
+          opacity: 0;
+        }
+      }
+
+      .animate-train {
+        animation: trainMove 0.6s ease-out forwards;
+      }
     </style>
   </head>
   <body
-    class="min-h-screen text-white flex flex-col justify-center items-center px-4"
+    class="overflow-x-hidden min-h-screen text-white flex flex-col justify-center items-center px-4"
   >
     <!-- 🔥 Logo -->
     <img
@@ -120,47 +132,37 @@
     </div>
     <% } %>
 
-    <!-- 🔥 Subscribe Form -->
-    <!-- 🔥 Subscribe Form -->
-    <!-- 🔥 Subscribe Form -->
-    <form
-      action="/subscribe"
-      method="POST"
-      class="w-full max-w-2xl p-6 rounded-2xl space-y-6"
-    >
-      <!-- Heading -->
-
-      <!-- Input and Button: Stacked on mobile, inline on larger screens -->
-      <div class="flex flex-col sm:flex-row gap-4">
-        <input
-          type="email"
-          name="email"
-          placeholder="Enter your email"
-          required
-          class="flex-1 rounded-xl py-3 px-4 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-400 focus:outline-none shadow-inner"
+    <!-- 🔥 Subscribe Button -->
+    <a href="/auth/google" id="subscribe-link">
+      <button
+        id="subscribe-btn"
+        class="flex items-center gap-2 px-6 py-2 text-white font-semibold rounded-full border border-white bg-transparent shadow-lg transition-transform relative"
+      >
+        <img
+          src="https://www.svgrepo.com/show/475656/google-color.svg"
+          alt="Google"
+          class="w-5 h-5"
         />
-        <button
-          type="submit"
-          class="rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 text-white font-semibold shadow-md transition w-full sm:w-auto"
-        >
-          Subscribe
-        </button>
-      </div>
+        <span id="btn-text">Subscribe with Google</span>
+        <span
+          id="train-trail"
+          class="absolute left-0 top-0 w-full h-full bg-white opacity-10 blur-2xl scale-0 transition-transform duration-300"
+        ></span>
+      </button>
+    </a>
 
-      <!-- reCAPTCHA -->
-      <div class="flex justify-center">
-        <div
-          class="g-recaptcha"
-          data-sitekey="<%= siteKey %>"
-          data-theme="dark"
-        ></div>
-      </div>
-    </form>
+    <script>
+      const btn = document.getElementById("subscribe-btn");
+      const link = document.getElementById("subscribe-link");
 
-    <!-- reCAPTCHA script -->
-
-    <!-- reCAPTCHA script -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+      btn.addEventListener("click", function (e) {
+        e.preventDefault(); // Prevent immediate navigation
+        btn.classList.add("animate-train");
+        setTimeout(() => {
+          window.location.href = link.href;
+        }, 600);
+      });
+    </script>
 
     <!-- 🔥 Benefits -->
     <div
@@ -185,7 +187,5 @@
         <p class="text-sm">You’re in control. Leave anytime with one click.</p>
       </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
   </body>
 </html>

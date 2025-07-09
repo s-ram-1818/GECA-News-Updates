@@ -11,35 +11,21 @@ const mongoose = require("mongoose");
 const connectDB = require("./connection.js");
 const { News, Subscriber } = require("./schema.js");
 const jwt = require("jsonwebtoken");
-const dns = require("dns");
-const rateLimit = require("express-rate-limit");
+const session = require("express-session");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 dotenv.config();
 
-// --- App Setup ---
 const app = express();
 const url = "https://geca.ac.in/";
 const PORT = process.env.PORT || 4231;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
-// --- Middleware Order Matters ---
-app.use(express.json()); // For JSON POST data (like spam.js)
-app.use(bodyParser.urlencoded({ extended: true })); // For HTML form data
+// --- Middleware ---
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
-
-dns.setServers(["8.8.8.8"]);
-function checkEmailDomain(email) {
-  return new Promise((resolve, reject) => {
-    const domain = email.split("@")[1];
-    if (!domain) return reject("Invalid email format");
-    dns.resolveMx(domain, (err, addresses) => {
-      if (err || addresses.length === 0) {
-        return reject("Domain cannot receive emails");
-      }
-      resolve("Domain is valid");
-    });
-  });
-}
 
 // --- Mail Transporter ---
 const transporter = nodemailer.createTransport({
@@ -62,24 +48,68 @@ const transporter = nodemailer.createTransport({
 // --- View Engine ---
 app.set("view engine", "ejs");
 
-// --- Redirect Helper ---
+// --- Session & Passport Setup ---
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((user, done) => done(null, user));
+
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "/auth/google/callback",
+    },
+    (accessToken, refreshToken, profile, done) => {
+      return done(null, profile);
+    }
+  )
+);
+
+// --- Helpers ---
 function redirectWithMessage(res, message) {
   res.redirect("/?message=" + encodeURIComponent(message));
 }
 
 // --- Routes ---
-
 app.get("/", async (req, res) => {
   try {
     const news = await News.find().lean();
     res.render("index", {
       news,
       message: req.query.message,
-      siteKey: process.env.RECAPTCHA_SITE_KEY,
     });
   } catch (e) {
     res.status(500).send("Failed to load news");
   }
+});
+
+app.get(
+  "/auth/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })
+);
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/subscribe-fail" }),
+  async (req, res) => {
+    res.redirect("/verify-email");
+  }
+);
+
+app.get("/subscribe-fail", (req, res) => {
+  redirectWithMessage(res, "<h2>❌ Subscription Failed</h2>");
 });
 
 app.get("/api/news", async (req, res) => {
@@ -116,14 +146,8 @@ app.get("/unsubscribe", async (req, res) => {
 });
 
 app.get("/verify-email", async (req, res) => {
-  const token = req.query.token;
-  if (!token) return res.status(400).send("Missing token.");
+  const email = req.user.emails[0].value;
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your_jwt_secret"
-    );
-    const email = decoded.email;
     const user = await Subscriber.findOne({ email });
     if (user) return redirectWithMessage(res, "You are already subscribed!");
 
@@ -170,114 +194,55 @@ Government College of Engineering, Aurangabad
     await transporter.sendMail(mailOptions);
     redirectWithMessage(res, "Subscription successful!");
   } catch {
-    redirectWithMessage(res, "Invalid or expired token.");
-  }
-});
-
-app.post("/subscribe", async (req, res) => {
-  const email = req.body.email;
-  const captchaToken = req.body["g-recaptcha-response"];
-
-  if (!captchaToken)
-    return redirectWithMessage(res, "Please complete the CAPTCHA.");
-  if (!email) return redirectWithMessage(res, "Email is required");
-
-  try {
-    const existing = await Subscriber.findOne({ email });
-    if (existing)
-      return redirectWithMessage(res, "You are already subscribed!");
-
-    const verifyURL = "https://www.google.com/recaptcha/api/siteverify";
-    const params = new URLSearchParams({
-      secret: process.env.RECAPTCHA_SECRET_KEY,
-      response: captchaToken,
-    });
-    const { data } = await axios.post(verifyURL, params);
-    if (!data.success)
-      return redirectWithMessage(res, "reCAPTCHA verification failed.");
-
-    await checkEmailDomain(email);
-
-    const token = jwt.sign(
-      { email },
-      process.env.JWT_SECRET || "your_jwt_secret",
-      { expiresIn: "15m" }
-    );
-    const verificationLink = `${BASE_URL}/verify-email?token=${token}`;
-    const verificationText = `
-GECA News Updates 📧
-
-Thank you for subscribing to receive the latest news from Government College of Engineering, Aurangabad (GECA).
-
-Please verify your email by clicking the link below:
-Verify Now: ${verificationLink}
-
-This link is valid for 15 minutes.
-
-Regards,  
-GECA News Updates Team
-`;
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Verify your subscription to GECA News Updates 📧",
-      text: verificationText,
-      html: `
-  <h3>GECA News Updates 📢</h3>
-  <p>Thank you for subscribing to receive the latest news from Government College of Engineering, Aurangabad (GECA).</p>
-  <p>Please verify your email by clicking the link below:</p>
-  <p><a href="${verificationLink}">Verify Now</a></p>
-  <p>This link is valid for 15 minutes.</p>
-  <p>Regards,<br/>GECA News Updates Team</p>
-  <hr />
-  <p><small>If you did not request this subscription, you can safely ignore this email.</small></p>
-`,
-    };
-    await transporter.sendMail(mailOptions);
-
-    redirectWithMessage(
-      res,
-      "Verification link sent! Check your inbox or spam."
-    );
-  } catch (err) {
-    console.error("Subscription error:", err.message);
-    redirectWithMessage(res, "Subscription failed. Try again later.");
+    redirectWithMessage(res, "Subscription Failed!");
   }
 });
 
 // --- Scraper + Emailer ---
 async function checkForNewNews() {
   console.log("Checking for new news...");
-  try {
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
 
-    const newsItems = [];
-    $("ul.scrollNews li a").each((i, el) => {
-      const title = $(el).text().trim();
-      const href = $(el).attr("href").trim();
-      const fullLink = new URL(href, url).href;
-      newsItems.push({ title, link: fullLink });
-    });
+  let newsItems = [];
+  let newNews = [];
+
+  try {
+    try {
+      const { data } = await axios.get(url);
+      const $ = cheerio.load(data);
+
+      $("ul.scrollNews li a").each((i, el) => {
+        const title = $(el).text().trim();
+        const href = $(el).attr("href").trim();
+        const fullLink = new URL(href, url).href;
+        newsItems.push({ title, link: fullLink });
+      });
+    } catch (err) {
+      console.error("Failed to fetch news:", err.message);
+      return;
+    }
 
     const existingLinks = new Set(
       (await News.find({}, "link").lean()).map((n) => n.link)
     );
-    const newNews = newsItems.filter((n) => !existingLinks.has(n.link));
+    newNews = newsItems.filter((n) => !existingLinks.has(n.link));
     if (!newNews.length) return;
 
-    await News.deleteMany({});
-    await News.insertMany(newsItems);
+    try {
+      await News.deleteMany({});
+      await News.insertMany(newsItems);
+    } catch (err) {
+      console.error("Failed to save news:", err.message);
+    }
 
     const subs = await Subscriber.find({}, "email").lean();
     for (const { email } of subs) {
       const unsubscribeToken = jwt.sign(
         { email },
         process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "30d " }
+        { expiresIn: "30d" }
       );
       const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
+
       const bodyText = `
 GECA News Updates 📰
 
