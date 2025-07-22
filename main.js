@@ -305,7 +305,9 @@ Hi there,
 
 Here are the latest updates from Government College of Engineering, Aurangabad (GECA):
 
-${newNews.map((n, i) => `${i + 1}. ${n.title}\n${n.link}`).join("\n\n")}
+${newNews
+  .map((n, i) => `${i + 1}. ${n.title}\nDownload here: ${n.link}`)
+  .join("\n\n")}
 
 You are receiving this email because you subscribed to GECA News Updates.
 
@@ -321,7 +323,14 @@ GECA News Team
   <p>Here are the latest updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>:</p>
   <ol>
     ${newNews
-      .map((n) => `<li><a href="${n.link}">${n.title}</a></li>`)
+      .map(
+        (n) => `
+          <li>
+            <p><strong>${n.title}</strong><br/>
+            <a href="${n.link}" style="color: blue;">Download here</a></p>
+          </li>
+        `
+      )
       .join("")}
   </ol>
   <p>You’re receiving this email because you subscribed to GECA News Updates.</p>
