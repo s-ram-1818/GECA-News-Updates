@@ -19,8 +19,12 @@ dotenv.config();
 
 const app = express();
 const url = "https://geca.ac.in/";
+const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+  url
+)}`;
 const PORT = process.env.PORT || 4231;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+// const BASE_URL = `http://localhost:${PORT}`;
 
 // --- Middleware ---
 app.use(express.json());
@@ -262,7 +266,7 @@ async function checkForNewNews() {
 
   try {
     try {
-      const { data } = await axios.get(url);
+      const { data } = await axios.get(proxyURL);
       const $ = cheerio.load(data);
 
       $("ul.scrollNews li a").each((i, el) => {
