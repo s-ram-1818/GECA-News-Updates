@@ -173,12 +173,17 @@ async function checkForNewNews() {
 
     try {
       // Try direct fetch
-      const response = await axios.get(url, { httpsAgent: agent, timeout: 8000 });
+      const response = await axios.get(url, {
+        httpsAgent: agent,
+        timeout: 8000,
+      });
       data = response.data;
     } catch (err) {
       // Fallback to proxy if Render blocks invalid SSL
       console.warn("Direct fetch failed, retrying with proxy...");
-      const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+        url
+      )}`;
       const response = await axios.get(proxyURL);
       data = response.data;
     }
@@ -222,7 +227,9 @@ async function checkForNewNews() {
         <p>Hi there,</p>
         <p>Here are the latest updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>:</p>
         <ol>
-          ${newNews.map((n) => `<li><a href="${n.link}">${n.title}</a></li>`).join("")}
+          ${newNews
+            .map((n) => `<li><a href="${n.link}">${n.title}</a></li>`)
+            .join("")}
         </ol>
         <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeLink}">unsubscribe here</a>.</p>
         <p>Regards,<br/>GECA News Team</p>
