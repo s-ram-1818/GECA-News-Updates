@@ -1,7 +1,6 @@
 // --- Dependencies ---
 const express = require("express");
 const bodyParser = require("body-parser");
-const path = require("path");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const cron = require("node-cron");
@@ -14,17 +13,14 @@ const jwt = require("jsonwebtoken");
 const session = require("express-session");
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const https = require("https");
 
 dotenv.config();
 
 const app = express();
 const url = "https://geca.ac.in/";
-const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-  url
-)}`;
 const PORT = process.env.PORT || 4231;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-// const BASE_URL = `http://localhost:${PORT}`;
 
 // --- Middleware ---
 app.use(express.json());
@@ -71,11 +67,9 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.BASE_URL}/auth/google/callback`,
+      callbackURL: `${BASE_URL}/auth/google/callback`,
     },
-    (accessToken, refreshToken, profile, done) => {
-      return done(null, profile);
-    }
+    (accessToken, refreshToken, profile, done) => done(null, profile)
   )
 );
 
@@ -92,27 +86,18 @@ function ensureAuth(req, res, next) {
 app.get("/", async (req, res) => {
   try {
     const news = await News.find().lean();
-    res.render("index", {
-      news,
-      message: req.query.message,
-    });
+    res.render("index", { news, message: req.query.message });
   } catch (e) {
     res.status(500).send("Failed to load news");
   }
 });
 
-app.get(
-  "/auth/google",
-  passport.authenticate("google", {
-    scope: ["email"],
-  })
-);
+// --- Google OAuth Routes ---
+app.get("/auth/google", passport.authenticate("google", { scope: ["email"] }));
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: "/subscribe-fail",
-  }),
+  passport.authenticate("google", { failureRedirect: "/subscribe-fail" }),
   async (req, res) => {
     const email = req.user.emails[0].value;
     try {
@@ -124,40 +109,22 @@ app.get(
       const unsubscribeToken = jwt.sign(
         { email },
         process.env.JWT_SECRET || "your_jwt_secret",
-        { expiresIn: "15m" }
+        { expiresIn: "30d" }
       );
       const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
-      const welcomeText = `
-Welcome to GECA News Updates 📢
-
-Hi there,
-
-We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from Government College of Engineering, Aurangabad (GECA).
-
-We'll make sure you're always in the loop.
-
-If you ever wish to unsubscribe, you can do so using the link below:
-Unsubscribe: ${unsubscribeLink}
-
-Regards,  
-GECA News Team  
-Government College of Engineering, Aurangabad
-`;
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: email,
         subject: "Welcome to GECA News Updates!",
-        text: welcomeText,
         html: `
-  <h3>Welcome to GECA News Updates 📢</h3>
-  <p>Hi there,</p>
-  <p>We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from <strong>Government College of Engineering, Aurangabad (GECA)</strong>.</p>
-  <p>We'll make sure you're always in the loop.</p>
-  <p>If you ever wish to unsubscribe, you can do so by clicking the link below:</p>
-  <p><a href="${unsubscribeLink}">Unsubscribe</a></p>
-  <p>Regards,<br/>GECA News Team<br/>Government College of Engineering, Aurangabad</p>
-`,
+          <h3>Welcome to GECA News Updates 📢</h3>
+          <p>Hi there,</p>
+          <p>You've successfully subscribed to receive updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>.</p>
+          <p>If you wish to unsubscribe, click below:</p>
+          <p><a href="${unsubscribeLink}">Unsubscribe</a></p>
+          <p>Regards,<br/>GECA News Team</p>
+        `,
       };
       await transporter.sendMail(mailOptions);
       redirectWithMessage(res, "Subscription successful!");
@@ -175,17 +142,8 @@ app.get("/api/news", async (req, res) => {
   try {
     const news = await News.find().lean();
     res.send(news);
-  } catch (e) {
+  } catch {
     res.status(500).json({ message: "Failed to load news" });
-  }
-});
-
-app.get("/api/sends", async (req, res) => {
-  try {
-    const sends = await Subscriber.find().lean();
-    res.send(sends);
-  } catch (e) {
-    res.status(500).json({ message: "Failed to load subscribers" });
   }
 });
 
@@ -204,95 +162,52 @@ app.get("/unsubscribe", async (req, res) => {
   }
 });
 
-app.get("/verify-email", ensureAuth, async (req, res) => {
-  const email = req.user.emails[0].value;
-  try {
-    const user = await Subscriber.findOne({ email });
-    if (user) return redirectWithMessage(res, "You are already subscribed!");
-
-    await new Subscriber({ email }).save();
-
-    const unsubscribeToken = jwt.sign(
-      { email },
-      process.env.JWT_SECRET || "your_jwt_secret",
-      { expiresIn: "15m" }
-    );
-    const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
-    const welcomeText = `
-Welcome to GECA News Updates 📢
-
-Hi there,
-
-We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from Government College of Engineering, Aurangabad (GECA).
-
-We'll make sure you're always in the loop.
-
-If you ever wish to unsubscribe, you can do so using the link below:
-Unsubscribe: ${unsubscribeLink}
-
-Regards,  
-GECA News Team  
-Government College of Engineering, Aurangabad
-`;
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Welcome to GECA News Updates!",
-      text: welcomeText,
-      html: `
-  <h3>Welcome to GECA News Updates 📢</h3>
-  <p>Hi there,</p>
-  <p>We're excited to have you on board! You've successfully subscribed to receive the latest updates, announcements, and important news from <strong>Government College of Engineering, Aurangabad (GECA)</strong>.</p>
-  <p>We'll make sure you're always in the loop.</p>
-  <p>If you ever wish to unsubscribe, you can do so by clicking the link below:</p>
-  <p><a href="${unsubscribeLink}">Unsubscribe</a></p>
-  <p>Regards,<br/>GECA News Team<br/>Government College of Engineering, Aurangabad</p>
-`,
-    };
-    await transporter.sendMail(mailOptions);
-    redirectWithMessage(res, "Subscription successful!");
-  } catch {
-    redirectWithMessage(res, "Subscription Failed!");
-  }
-});
-
-// --- Scraper + Emailer ---
+// --- Scraper (with Render-compatible Proxy Fallback) ---
 async function checkForNewNews() {
   console.log("Checking for new news...");
-
+  const agent = new https.Agent({ rejectUnauthorized: false });
   let newsItems = [];
-  let newNews = [];
 
   try {
-    try {
-      const { data } = await axios.get(proxyURL);
-      const $ = cheerio.load(data);
+    let data;
 
-      $("ul.scrollNews li a").each((i, el) => {
-        const title = $(el).text().trim();
-        const href = $(el).attr("href").trim();
+    try {
+      // Try direct fetch
+      const response = await axios.get(url, { httpsAgent: agent, timeout: 8000 });
+      data = response.data;
+    } catch (err) {
+      // Fallback to proxy if Render blocks invalid SSL
+      console.warn("Direct fetch failed, retrying with proxy...");
+      const proxyURL = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const response = await axios.get(proxyURL);
+      data = response.data;
+    }
+
+    const $ = cheerio.load(data);
+    $("ul.scrollNews li a").each((i, el) => {
+      const title = $(el).text().trim();
+      const href = $(el).attr("href")?.trim();
+      if (title && href) {
         const fullLink = new URL(href, url).href;
         newsItems.push({ title, link: fullLink });
-      });
-    } catch (err) {
-      console.error("Failed to fetch news:", err.message);
-      return;
-    }
+      }
+    });
 
     const existingLinks = new Set(
       (await News.find({}, "link").lean()).map((n) => n.link)
     );
-    newNews = newsItems.filter((n) => !existingLinks.has(n.link));
-    if (!newNews.length) return;
+    const newNews = newsItems.filter((n) => !existingLinks.has(n.link));
 
-    try {
-      await News.deleteMany({});
-      await News.insertMany(newsItems);
-    } catch (err) {
-      console.error("Failed to save news:", err.message);
+    if (!newNews.length) {
+      console.log("No new news found.");
+      return;
     }
 
+    await News.deleteMany({});
+    await News.insertMany(newsItems);
+    console.log(`🆕 Found ${newNews.length} new news items.`);
+
+    // Send updates to all subscribers
     const subs = await Subscriber.find({}, "email").lean();
     for (const { email } of subs) {
       const unsubscribeToken = jwt.sign(
@@ -302,43 +217,22 @@ async function checkForNewNews() {
       );
       const unsubscribeLink = `${BASE_URL}/unsubscribe?token=${unsubscribeToken}`;
 
-      const bodyText = `
-GECA News Updates 📰
-
-Hi there,
-
-Here are the latest updates from Government College of Engineering, Aurangabad (GECA):
-
-${newNews.map((n, i) => `${i + 1}. ${n.title}\n${n.link}`).join("\n\n")}
-
-You are receiving this email because you subscribed to GECA News Updates.
-
-To unsubscribe: ${unsubscribeLink}
-
-Regards,  
-GECA News Team
-`;
-
       const bodyHtml = `
-  <h3>GECA News Updates 📰</h3>
-  <p>Hi there,</p>
-  <p>Here are the latest updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>:</p>
-  <ol>
-    ${newNews
-      .map((n) => `<li><a href="${n.link}">${n.title}</a></li>`)
-      .join("")}
-  </ol>
-  <p>You’re receiving this email because you subscribed to GECA News Updates.</p>
-  <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeLink}">unsubscribe here</a>.</p>
-  <p>Regards,<br/>GECA News Team</p>
-`;
+        <h3>GECA News Updates 📰</h3>
+        <p>Hi there,</p>
+        <p>Here are the latest updates from <strong>Government College of Engineering, Aurangabad (GECA)</strong>:</p>
+        <ol>
+          ${newNews.map((n) => `<li><a href="${n.link}">${n.title}</a></li>`).join("")}
+        </ol>
+        <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeLink}">unsubscribe here</a>.</p>
+        <p>Regards,<br/>GECA News Team</p>
+      `;
 
       try {
         await transporter.sendMail({
           from: process.env.EMAIL_USER,
           to: email,
           subject: "GECA News Update 📰",
-          text: bodyText,
           html: bodyHtml,
         });
       } catch (err) {
